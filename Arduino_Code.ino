@@ -2,10 +2,9 @@
 #include <SoftwareSerial.h>  
 #include <Time.h>
 
-//--------------------
-//Pin Assignments
-//--------------------
-
+//------------------------
+//Pin Declarations 
+//------------------------
 #define bluetoothTx 11  // TX-O pin of bluetooth mate, Arduino D2
 #define bluetoothRx 10  // RX-I pin of bluetooth mate, Arduino D3
 #define power 9        // Pin used to turn power on an off
@@ -13,24 +12,22 @@
 #define cmo 12         // Pin used to read from the carbon monoxide detector
 #define con 6          // check if the BT module is paired
 
-
-//---------------------
-//Variable Definitions
-//---------------------
-
+//-----------------------
+//Variable Declarations
+//-----------------------
 char val;                     // Value received from bluetooth serial
 boolean cmol = false;         // Value for carbon monoxide detection
-boolean setting = true;       // Value deciding whether or not to turn off power when no slave is detected
+unsigned int setting = 0;       // Value deciding whether or not to turn off power when no slave is detected
 boolean powr = false;
 boolean conekt = false;
 long last1;
 long last0;
-time_t sync_time;             // Value pulled from device to sync internal clock
+//time_t sync_time;             // Value pulled from device to sync internal clock
 
-//Declare a serial connection over these pins
+//Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
 
-//Initialization
+//Initializations
 void setup()
 {
   Serial.begin(9600);             // Begin the serial monitor at 9600bps
@@ -39,13 +36,13 @@ void setup()
   //  bluetooth.print("$");
   //  bluetooth.print("$");           // Enter command mode
   //  delay(100);                     // Short delay, wait for the Mate to send back CMD
-  //  bluetooth.println("U,9600,N");  // Temporarily Change the baudrate to 9600, no parity. 115200 can be too fast at times for NewSoftSerial to relay the data reliably
+  //  bluetooth.println("U,9600,N");  // Temporarily Change the baudrate to 9600, no parity 115200 can be too fast at times for NewSoftSerial to relay the data reliably                               
   //  bluetooth.begin(9600);          // Start bluetooth serial at 9600
   pinMode(power, OUTPUT);         // Set power pin to output
-  digitalWrite(power, LOW);       // Initialize power to off
-  pinMode(led, OUTPUT);           // Set led pin to output
-  digitalWrite(led, LOW);         // Initialize LED to off
-  pinMode(con,INPUT);             // Set 
+  digitalWrite(power, LOW);       // Initalize power to off initially
+  pinMode(led, OUTPUT);           // Set LED pin to output
+  digitalWrite(led, LOW);         // Initalize the safety LEDs off initially
+  pinMode(con,INPUT);             // Set the connection pin to input 
   // pinMode(cmo, INPUT);
 }
 
@@ -70,13 +67,13 @@ void loop()
   
   // if (Serial.available()) bluetooth.write(Serial.read()); //For debug//
 
-  //Sync time from device
+  //Sync time from device and schedule 
   if (conekt){
     //Send request for time from device
     //sync_time = time from device
-    // 
-
-
+    //setTime(sync_time);
+    //Optional: send query to user to verify time.
+    //sync the current timing schedules as well 
   }
 
 
@@ -109,24 +106,38 @@ void loop()
         digitalWrite(led, LOW);
         Serial.println("Turned off safety lights!");
     } 
-    // if the value received is O turn the setting off, If the user wants the device to remain on when they go out of range
+    // if the value received is O change setting to 0, If the use wants the device to turn off when they go out of range
     else if(val == 'O')
     {
-      setting = false;    
+        setting = 0;
     }
-    // if the value received is C turn the setting on, If the use wants the device to turn off when they go out of range
-    else if(val == 'C')
+    // if the value received is H change setting to 1, If the use wants the device to turn on when they go out of range
+    else if(val == 'H')
     {
-        setting = true;
+        setting = 1;
     }
+    // if the value received is A change setting to 2, If the user wants the device to retain it's current power state when they go out of range
+    else if(val == 'A')
+    {
+      setting = 2;    
+    }
+
+    //Settings for calendar events (task_action.h)
+      //Receive Data type tuple
+      //(off,schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year))
+      //(on,time schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year))
+      //(on+off, schedule start((minute,hour,day,month,year), interval_tostayon(in minutes, max is monthly),interval_tostayoff(in minutes, max is monthly) schedule end(minute,hour,day,month,year))
+      //(least common, maybe not implement) (off+on, schedule start((minute,hour,day,month,year), interval_tostayoff(in minutes, max is monthly),interval_tostayon(in minutes, max is monthly) schedule end(minute,hour,day,month,year)))
+      //when confirming schedule, cross check all other time schedules to make sure of no conflicts.
+
     // delay before next command occurs 
     delay(50);
   }
 
   // Turn outlet on or off when bluetooth disconnects depending on setting set by user. 
-  else if (!conekt) 
+  else if (!conekt && setting < 2) 
   {
-    if (!setting){
+    if (setting == 0){
       digitalWrite(power, LOW);
       Serial.println("Turned off power! (Disconnect)");
     }
