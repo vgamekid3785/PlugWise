@@ -14,9 +14,9 @@
 #define con 6          // check if the BT module is paired
 
 
-//--------------------
+//---------------------
 //Variable Definitions
-//--------------------
+//---------------------
 
 char val;                     // Value received from bluetooth serial
 boolean cmol = false;         // Value for carbon monoxide detection
