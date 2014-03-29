@@ -24,6 +24,8 @@ long last1;
 long last0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
 
+void change_power(const int& setting);
+
 //Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
 
@@ -118,23 +120,50 @@ void loop()
       setting = 2;   
       Serial.println("Changed setting to 2"); 
     }
+    //Tasks Section
+    /*
+      //Two types of taks, repeated or one time, and from current time 
 
-    //Settings for calendar events (task_action.h)
-      //Receive Data type tuple
-      //(off,schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year))
-      //(on,time schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year))
-      //(on+off, schedule start((minute,hour,day,month,year), interval_tostayon(in minutes, max is monthly),interval_tostayoff(in minutes, max is monthly) schedule end(minute,hour,day,month,year))
-      //(least common, maybe not implement) (off+on, schedule start((minute,hour,day,month,year), interval_tostayoff(in minutes, max is monthly),interval_tostayon(in minutes, max is monthly) schedule end(minute,hour,day,month,year)))
-      //when confirming schedule, cross check all other time schedules to make sure of no conflicts.
+
+      //Settings for calendar events (task_action.h)
+        //Receive Data type tuple
+      //Recieving Tasks
+        //(off,schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
+        //(on,time schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
+        //(on+off, schedule start((minute,hour,day,month,year), interval_tostayon(in minutes, max is monthly),interval_tostayoff(in minutes, max is monthly) schedule end(minute,hour,day,month,year),device(safety or regular))
+        //(least common, maybe not implement) (off+on) invert the intervals from the last option
+
+      //Running Tasks
+      for (int i= 0; i < tasks.size(); ++i){
+        if (device == regular){
+            if(type--(needs renaming)-- == off){
+              task_action(turn_off_led(), interval*60, )
+            }
+        }
+        //(off,schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
+          
+
+        //(on,time schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
+        //(on+off, schedule start((minute,hour,day,month,year), interval_tostayon(in minutes, max is monthly),interval_tostayoff(in minutes, max is monthly) schedule end(minute,hour,day,month,year),device(safety or regular))
+        //(least common, maybe not implement) (off+on, schedule start((minute,hour,day,month,year), interval_tostayoff(in minutes, max is monthly),interval_tostayon(in minutes, max is monthly) schedule end(minute,hour,day,month,year)))
+        //when confirming schedule, cross check all other time schedules to make sure of no conflicts.
+      }
+    */
 
     // delay before next command occurs 
     delay(50);
   }
 
   // Turn outlet on or off when bluetooth disconnects depending on setting set by user. 
-  else if (!conekt && setting < 2) 
+  else if (!conekt) change_power(setting);
+
+}
+
+//Function to change the state of the main power based on the passed setting 
+void change_power(const int& set){
+  if (set < 2)
   {
-    if (setting == 0  && powr){
+    if (set == 0  && powr){
       digitalWrite(power, LOW);
       Serial.println("Turned off power! (Disconnect)");
     }
@@ -142,27 +171,41 @@ void loop()
       digitalWrite(power, HIGH);
       Serial.println("Turned on power! (Disconnect)");
     }
-    powr = setting;
+    powr = set;
   }
+}
 
-  //-----------------------------------------------------------
-  //----------------Carbon Monoxide Detection------------------
-  //-----------------------------------------------------------
-  /*
-  //All the code for carbon monoxide detection (needs some tweaks)
-  if(Serial.available())  // If stuff was typed in the serial monitor
-  {
-    //if the board has detected carbon monoxide, tell the serial connection
-    if(cmol == true){
-        bluetooth.println('1');
-    }
-    // Send any characters the Serial monitor prints to the bluetooth
-    bluetooth.println((char)Serial.read());
-    //delay before next command occurs
-    delay(50);
+
+
+//-----------------------------------------------------------
+//--------------------Photoresistor--------------------------
+//-----------------------------------------------------------
+
+/*
+int sensorValue = analogRead(12);
+// Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
+float voltage = sensorValue * (5.0 / 1023.0);
+// print out the value you read:
+Serial.println(voltage);
+Serial.println(sensorValue);
+delay(500);
+*/
+
+//-----------------------------------------------------------
+//----------------Carbon Monoxide Detection------------------
+//-----------------------------------------------------------
+/*
+//All the code for carbon monoxide detection (needs some tweaks)
+if(Serial.available())  // If stuff was typed in the serial monitor
+{
+  //if the board has detected carbon monoxide, tell the serial connection
+  if(cmol == true){
+      bluetooth.println('1');
   }
-  
-
+  // Send any characters the Serial monitor prints to the bluetooth
+  bluetooth.println((char)Serial.read());
+  //delay before next command occurs
+  delay(50);
   //if carbon monoxide is detected, store that it is
   if(digitalRead(cmo) == HIGH){
     cmol = true;
@@ -171,7 +214,5 @@ void loop()
   else {
     cmol = false;
   }
-
-  */
-  // and loop forever and ever!
 }
+*/
