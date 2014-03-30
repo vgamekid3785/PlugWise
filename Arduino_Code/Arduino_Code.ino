@@ -120,32 +120,48 @@ void loop()
       setting = 2;   
       Serial.println("Changed setting to 2"); 
     }
+
     //Tasks Section
     /*
-      //Two types of tasks, repeated or one time, and from current time(timer)
+      //Tasks are either to turn something on, off or both
       //Repeated or one time reflected in the schedule end / interval 
-      //timer is essentially identical, except schedule start is current time and interval = 0;
+      //timer is essentially identical, except schedule start is current time + timer time and interval = 0;
 
       //Settings for calendar events (task_action.h)
         //Recieving Tasks from bluetooth
         //tuple (type,schedule_start,inverval, if appropriate second interval, schedule end, device to change)
 
         types = off || on || on/off                           //Timer functionality will change the tuple (Android dev)
-        schedule start = (minute,hour,day,month,year);        //Don't allow to be set in the past, set to now if timer 
-        schedule end = (minute,hour,day,month,year);          //Don't allow to be set in the past, set to now if timer 
-        interval = amount of time between funciton calls      //lowest user input is minutes, max is monthly (30 days, 43829 minutes), 0 if timer 
+        schedule start = (minute,hour,day,month,year);        //Don't allow to be set in the past, set to current time + timer time 
+        schedule end = (minute,hour,day,month,year);          //Don't allow to be set in the past, set to current time + timer time
+        interval = amount of time between funciton calls      //lowest user input is minutes, max is monthly (30 days, 43829 minutes), 0 if timer and set into different flash memory
         device = safety_lights || power;
         
-        private ticks = end-start / interval 
+        private ticks = floor(end-start / interval);
 
         //How to initiate task 
         Taskaction task(function, interval, ticks);
 
         //options =
-        //(off,schedule_start,inverval, schedule end, device)
-        //(on,schedule_start,inverval, schedule end, device)
-        //(on+off,schedule_start_on, interval_on, schedule_end_on, schedule_end_on, schedule_start_off, Interval_off, schedule_end_off,device) //
+          //Schedule
+          //(off,schedule_start,inverval, schedule end, device)
+          //(on,schedule_start,inverval, schedule end, device)
+          //(on+off,schedule_start_on, interval_on, schedule_end_on, schedule_end_on, schedule_start_off, Interval_off, schedule_end_off,device)
+            //****on off translates to an on schedule and an off schedule although it is passed as one (can be passed as two if easier for android dev****
 
+          //Timer; 
+          //(off,schedule_start, 0, schedule start, device)
+          //(on,schedule_start, 0, schedule start, device)
+
+        //3 places in flash memory
+          //1 for schedule off
+          //1 for schedule on
+          //1 for timer on/off 
+
+        //When data is received, pass into flash memory, prompt user to overwrite if there is currently a schedule. 
+
+
+        
       //Running Tasks
       for (int i= 0; i < tasks.size(); ++i){
         if (device == regular){
