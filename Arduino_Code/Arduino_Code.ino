@@ -122,16 +122,29 @@ void loop()
     }
     //Tasks Section
     /*
-      //Two types of taks, repeated or one time, and from current time 
-
+      //Two types of tasks, repeated or one time, and from current time(timer)
+      //Repeated or one time reflected in the schedule end / interval 
+      //timer is essentially identical, except schedule start is current time and interval = 0;
 
       //Settings for calendar events (task_action.h)
-        //Receive Data type tuple
-      //Recieving Tasks
-        //(off,schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
-        //(on,time schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
-        //(on+off, schedule start((minute,hour,day,month,year), interval_tostayon(in minutes, max is monthly),interval_tostayoff(in minutes, max is monthly) schedule end(minute,hour,day,month,year),device(safety or regular))
-        //(least common, maybe not implement) (off+on) invert the intervals from the last option
+        //Recieving Tasks from bluetooth
+        //tuple (type,schedule_start,inverval, if appropriate second interval, schedule end, device to change)
+
+        types = off || on || on/off                           //Timer functionality will change the tuple (Android dev)
+        schedule start = (minute,hour,day,month,year);        //Don't allow to be set in the past, set to now if timer 
+        schedule end = (minute,hour,day,month,year);          //Don't allow to be set in the past, set to now if timer 
+        interval = amount of time between funciton calls      //lowest user input is minutes, max is monthly (30 days, 43829 minutes), 0 if timer 
+        device = safety_lights || power;
+        
+        private ticks = end-start / interval 
+
+        //How to initiate task 
+        Taskaction task(function, interval, ticks);
+
+        //options =
+        //(off,schedule_start,inverval, schedule end, device)
+        //(on,schedule_start,inverval, schedule end, device)
+        //(on+off,schedule_start_on, interval_on, schedule_end_on, schedule_end_on, schedule_start_off, Interval_off, schedule_end_off,device) //
 
       //Running Tasks
       for (int i= 0; i < tasks.size(); ++i){
