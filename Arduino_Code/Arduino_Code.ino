@@ -1,4 +1,3 @@
-
 #include <SoftwareSerial.h>  
 #include <Time.h>
 
@@ -68,7 +67,6 @@ void loop()
     //Send request for time from device
     //sync_time = time from device
     //setTime(sync_time);
-    //Optional: send query to user to verify time.
     //sync the current timing schedules as well 
   }
 
@@ -126,15 +124,18 @@ void loop()
       //Tasks are either to turn something on, off or both
       //Repeated or one time reflected in the schedule end / interval 
       //timer is essentially identical, except schedule start is current time + timer time and interval = 0;
+	  
+	  //In set up, initialize the three places in flash memory to tasks with NULL functions just so there's something there and we don't risk calling anything that doesn't exist
 
       //Settings for calendar events (task_action.h)
-        //Recieving Tasks from bluetooth
-        //tuple (type,schedule_start,inverval, if appropriate second interval, schedule end, device to change)
+	  
+        //Receiving Tasks from bluetooth
+        //tuple (type,schedule_start,interval, schedule end, device to change)
 
         types = off || on || on/off                           //Timer functionality will change the tuple (Android dev)
         schedule start = (minute,hour,day,month,year);        //Don't allow to be set in the past, set to current time + timer time 
         schedule end = (minute,hour,day,month,year);          //Don't allow to be set in the past, set to current time + timer time
-        interval = amount of time between funciton calls      //lowest user input is minutes, max is monthly (30 days, 43829 minutes), 0 if timer and set into different flash memory
+        interval = amount of time between function calls      //lowest user input is minutes, max is monthly (30 days, 43829 minutes), 0 if timer and set into different flash memory
         device = safety_lights || power;
         
         private ticks = floor(end-start / interval);
@@ -144,10 +145,10 @@ void loop()
 
         //options =
           //Schedule
-          //(off,schedule_start,inverval, schedule end, device)
-          //(on,schedule_start,inverval, schedule end, device)
+          //(off,schedule_start,interval, schedule end, device)
+          //(on,schedule_start,interval, schedule end, device)
           //(on+off,schedule_start_on, interval_on, schedule_end_on, schedule_end_on, schedule_start_off, Interval_off, schedule_end_off,device)
-            //****on off translates to an on schedule and an off schedule although it is passed as one (can be passed as two if easier for android dev****
+            //****on off translates to an on schedule and an off schedule although it is passed as one (can be passed as two if easier for android dev, probably best option **jake input**)****
 
           //Timer; 
           //(off,schedule_start, 0, schedule start, device)
@@ -156,27 +157,23 @@ void loop()
         //3 places in flash memory
           //1 for schedule off
           //1 for schedule on
-          //1 for timer on/off 
+          //1 for timer on/off ?maybe 2
 
-        //When data is received, pass into flash memory, prompt user to overwrite if there is currently a schedule. 
-
-
-        
+        //When data is received, overwrite flash memory, don't change any parameters of the current task, prompt user to overwrite if there is currently a schedule. 
+		//After writing the data to memory, set state of task to false so it doesn't immediately start. 
+		// **Ask Jake** (Could change the constructor to default to false, seems like best solution)
+		//task.tick() is only a check to see if it should call the function again based on the last time it was called, current time, and the interval
+		
       //Running Tasks
-      for (int i= 0; i < tasks.size(); ++i){
-        if (device == regular){
-            if(type--(needs renaming)-- == off){
-              task_action(turn_off_led(), interval*60, )
-            }
-        }
-        //(off,schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
-          
-
-        //(on,time schedule start((minute,hour,day,month,year), interval(in minutes, max is monthly), schedule end(minute,hour,day,month,year),device(safety or regular))
-        //(on+off, schedule start((minute,hour,day,month,year), interval_tostayon(in minutes, max is monthly),interval_tostayoff(in minutes, max is monthly) schedule end(minute,hour,day,month,year),device(safety or regular))
-        //(least common, maybe not implement) (off+on, schedule start((minute,hour,day,month,year), interval_tostayoff(in minutes, max is monthly),interval_tostayon(in minutes, max is monthly) schedule end(minute,hour,day,month,year)))
-        //when confirming schedule, cross check all other time schedules to make sure of no conflicts.
-      }
+		for task in schedule/timer
+			if (current time > schedule start time && !task.GetCurrentState):
+				task.Enable(); 
+			task.tick()
+	  //----------
+	  //Misc notes
+	  //----------
+	  //If user wants to remove a schedule, change the function to NULL so nothing will ever be called if it gets it;
+	  
     */
 
     // delay before next command occurs 
