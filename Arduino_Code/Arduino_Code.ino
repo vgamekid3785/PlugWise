@@ -181,7 +181,7 @@ void loop()
   }
 
   // Turn outlet on or off when bluetooth disconnects depending on setting set by user. 
-  else if (!conekt) change_power(setting);
+  else if (!conekt){ change_power(setting); }
 
 }
 
@@ -222,23 +222,17 @@ delay(500);
 //-----------------------------------------------------------
 /*
 //All the code for carbon monoxide detection (needs some tweaks)
-if(Serial.available())  // If stuff was typed in the serial monitor
-{
-  //if the board has detected carbon monoxide, tell the serial connection
-  if(cmol == true){
-      bluetooth.println('1');
-  }
-  // Send any characters the Serial monitor prints to the bluetooth
-  bluetooth.println((char)Serial.read());
-  //delay before next command occurs
-  delay(50);
-  //if carbon monoxide is detected, store that it is
-  if(digitalRead(cmo) == HIGH){
-    cmol = true;
-  } 
+//if carbon monoxide is detected, store that it is
+if(digitalRead(cmo) == HIGH){
+  cmol = true;
+} 
+else {   
   //otherwise store that it is not detected
-  else {
-    cmol = false;
-  }
+  cmol = false;
+}
+if(bluetooth.available() && cmol == true)  // If stuff was typed in the serial monitor
+{
+  //if the board has detected carbon monoxide, tell the phone
+  bluetooth.println('1');
 }
 */
