@@ -10,6 +10,7 @@
 #define led 13         // Pin used to control safety LEDs
 //#define cmo 12         // Pin used to read from the carbon monoxide detector
 #define con 6          // check if the BT module is paired
+#define photor 5       
 
 //-----------------------
 //Variable Declarations
@@ -19,11 +20,14 @@ boolean cmol = false;         // Value for carbon monoxide detection
 unsigned int setting = 0;       // Value deciding whether or not to turn off power when no slave is detected
 boolean powr = false;
 boolean conekt = false;
+bool safety_auto = true;
+float min_value = 0;
 long last1;
 long last0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
 
 void change_power(const int& setting);
+void ambient_light_check(const unsigned int& min_value);
 
 //Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -73,7 +77,11 @@ void loop()
 
   if(bluetooth.available())  // If the bluetooth sent any characters
   {
+    //-------------------------------------------
+    //---------------Receiving Data--------------
+    //-------------------------------------------
     val = bluetooth.read();
+    //----------------Immediate Commands---------------
     // if the value received is H turn on power to the socket
     if(val == 'H')
     {
@@ -88,18 +96,50 @@ void loop()
         powr = false;
         Serial.println("Turned off power! (Command)");
     }
+
     // if the value received is S turn on the safety lights 
-    else if(val == 'S')
+    else if(val == 'S' && !safety_auto)
     {
         digitalWrite(led, HIGH);
         Serial.println("Turned on safety lights!");
     } 
     // if the value received is U turn off the safety lights
-    else if(val == 'U')
+    else if(val == 'U' && !safety_auto)
     {
         digitalWrite(led, LOW);
         Serial.println("Turned off safety lights!");
     } 
+    //------------Safety Light Calibration---------- Command to calibrate the value for the photo resistor
+    else if (val == 'C') 
+    {
+      //Make sure that the LED's are on for the test
+      if (!digitalRead(led)) digitalWrite(led,HIGH);
+
+      //Averaging 3 values to be sure ** We can change the delay or eliminate completely if need be **
+      //Needs testing, may need to add some onto this number to prevent it from oscilating
+      min_value += analogRead(photor);
+      delay(50);
+      min_value += analogRead(photor);
+      delay(50);
+      min_value += analogRead(photor);
+      min_value /= 3;
+      Serial.println("Calibration Successful");
+      digitalWrite(led,LOW);
+    }
+
+    //--------------Setting Changes-----------------
+
+    //--------------Safety Light Settings-----------
+    else if (val == 4){
+      safety_auto = true;
+      Serial.println("Safety LED lights auto mode");
+    }
+    else if (val == 5){
+      safety_auto = false;
+      Serial.println("Safety LED lights manual mode");
+    }
+
+    //--------------Power Settings-------------------
     // if the value received is O change setting to 0, If the use wants the device to turn off when they go out of range
     else if(val == '1')
     {
@@ -119,16 +159,28 @@ void loop()
       Serial.println("Changed setting to 2"); 
     }
 
-    //Tasks Section
-    /*
-      //Tasks are either to turn something on, off or both
-      //Repeated or one time reflected in the schedule end / interval 
-      //timer is essentially identical, except schedule start is current time + timer time and interval = 0;
-	  
-	  //In set up, initialize the three places in flash memory to tasks with NULL functions just so there's something there and we don't risk calling anything that doesn't exist
+
+
+    // delay before next command occurs 
+    delay(50);
+  }
+
+  // Turn outlet on or off when bluetooth disconnects depending on setting set by user. 
+  else if (!conekt) change_power(setting); 
+  //Turn on or off the safety lights depending on if safety auto is on and it is darker than the minimum
+  else if (safety_auto) ambient_light_check(min_value);
+  //---------------------------------------------
+  //---------------Tasks Section-----------------
+  //---------------------------------------------
+  /*
+    //Tasks are either to turn something on, off or both
+    //Repeated or one time reflected in the schedule end / interval 
+    //timer is essentially identical, except schedule start is current time + timer time and interval = 0;
+  
+    //In set up, initialize the three places in flash memory to tasks with NULL functions just so there's something there and we don't risk calling anything that doesn't exist
 
       //Settings for calendar events (task_action.h)
-	  
+    
         //Receiving Tasks from bluetooth
         //tuple (type,schedule_start,interval, schedule end, device to change)
 
@@ -160,28 +212,23 @@ void loop()
           //1 for timer on/off ?maybe 2
 
         //When data is received, overwrite flash memory, don't change any parameters of the current task, prompt user to overwrite if there is currently a schedule. 
-		//After writing the data to memory, set state of task to false so it doesn't immediately start. 
-		// **Ask Jake** (Could change the constructor to default to false, seems like best solution)
-		//task.tick() is only a check to see if it should call the function again based on the last time it was called, current time, and the interval
-		
+    //After writing the data to memory, set state of task to false so it doesn't immediately start. 
+    // **Ask Jake** (Could change the constructor to default to false, seems like best solution)
+    //task.tick() is only a check to see if it should call the function again based on the last time it was called, current time, and the interval
+    
       //Running Tasks
-		for task in schedule/timer
-			if (current time > schedule start time && !task.GetCurrentState):
-				task.Enable(); 
-			task.tick()
-	  //----------
-	  //Misc notes
-	  //----------
-	  //If user wants to remove a schedule, change the function to NULL so nothing will ever be called if it gets it;
-	  
-    */
+    for task in schedule/timer
+      if (current time > schedule start time && !task.GetCurrentState):
+        task.Enable(); 
+      task.tick()
+    //----------
+    //Misc notes
+    //----------
+    //If user wants to remove a schedule, change the function to NULL so nothing will ever be called if it gets it; 
+  */
 
-    // delay before next command occurs 
-    delay(50);
-  }
 
-  // Turn outlet on or off when bluetooth disconnects depending on setting set by user. 
-  else if (!conekt){ change_power(setting); }
+
 
 }
 
@@ -197,6 +244,7 @@ void change_power(const int& set){
       digitalWrite(power, HIGH);
       Serial.println("Turned on power! (Disconnect)");
     }
+    //Set 0 will write low and Set 1 will write high
     powr = set;
   }
 }
@@ -207,15 +255,23 @@ void change_power(const int& set){
 //--------------------Photoresistor--------------------------
 //-----------------------------------------------------------
 
-/*
-int sensorValue = analogRead(12);
-// Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
-float voltage = sensorValue * (5.0 / 1023.0);
-// print out the value you read:
-Serial.println(voltage);
-Serial.println(sensorValue);
-delay(500);
-*/
+
+void ambient_light_check(const unsigned int& min_value){
+  //If the ambient light is less than the dark value and the LED's arn't already on, turn them on
+  if (analogRead(photor) < min_value && !digitalRead(led)){
+    Serial.println("Turned on LED's, darkness");
+    digitalWrite(led,HIGH);
+  }
+  //If the ambient light is greater than the dark values and the LED's are on, turn them off
+  else if (analogRead(photor) > min_value && digitalRead(led)){
+    Serial.println("Turned off LED's, brightness");
+    digitalWrite(led,LOW);
+  }
+  
+  // print out the value you read:
+  //Serial.println(voltage);
+  //Serial.println(sensorValue);
+}
 
 //-----------------------------------------------------------
 //----------------Carbon Monoxide Detection------------------
