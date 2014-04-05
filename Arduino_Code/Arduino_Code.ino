@@ -8,7 +8,7 @@
 #define bluetoothRx 10  // RX-I pin of bluetooth mate, Arduino D3
 #define power 9        // Pin used to turn power on an off
 #define led 13         // Pin used to control safety LEDs
-//#define cmo 12         // Pin used to read from the carbon monoxide detector
+#define cmo 12         // Pin used to read from the carbon monoxide detector
 #define con 6          // check if the BT module is paired
 #define photor 5       
 
@@ -16,18 +16,24 @@
 //Variable Declarations
 //-----------------------
 char val;                     // Value received from bluetooth serial
-boolean cmol = false;         // Value for carbon monoxide detection
+float cmol = 0;         	// Value for carbon monoxide detection ** Value needs to be written ** 
 unsigned int setting = 0;       // Value deciding whether or not to turn off power when no slave is detected
 boolean powr = false;
 boolean conekt = false;
-bool safety_auto = true;
+bool calibrated = false; ** needs to be written to flash ** 
+bool safety_auto = false;
 float min_value = 0;
 long last1;
 long last0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
 
+//-----------------------
+//--Function Prototypes--
+//-----------------------
 void change_power(const int& setting);
 void ambient_light_check(const unsigned int& min_value);
+void carbon_monoxide_check(const bool& connected);
+
 
 //Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -124,13 +130,14 @@ void loop()
       min_value += analogRead(photor);
       min_value /= 3;
       Serial.println("Calibration Successful");
+	  calibrated = true;
       digitalWrite(led,LOW);
     }
 
     //--------------Setting Changes-----------------
 
-    //--------------Safety Light Settings-----------
-    else if (val == 4){
+    //--------------Safety Light Settings----------- ******************* don't let it set to auto without calibration, calibration needs to be written to flash***************
+    else if (val == 4 && calibrated){
       safety_auto = true;
       Serial.println("Safety LED lights auto mode");
     }
@@ -169,6 +176,9 @@ void loop()
   else if (!conekt) change_power(setting); 
   //Turn on or off the safety lights depending on if safety auto is on and it is darker than the minimum
   else if (safety_auto) ambient_light_check(min_value);
+  //CO check
+  carbon_monoxide_check(conekt);
+  
   //---------------------------------------------
   //---------------Tasks Section-----------------
   //---------------------------------------------
@@ -226,11 +236,9 @@ void loop()
     //----------
     //If user wants to remove a schedule, change the function to NULL so nothing will ever be called if it gets it; 
   */
-
-
-
-
 }
+
+
 
 //Function to change the state of the main power based on the passed setting 
 void change_power(const int& set){
@@ -276,19 +284,18 @@ void ambient_light_check(const unsigned int& min_value){
 //-----------------------------------------------------------
 //----------------Carbon Monoxide Detection------------------
 //-----------------------------------------------------------
+
 /*
 //All the code for carbon monoxide detection (needs some tweaks)
 //if carbon monoxide is detected, store that it is
-if(digitalRead(cmo) == HIGH){
-  cmol = true;
-} 
-else {   
+
+void carbon_monoxide_check(const bool& connected){
+  if(analogRead(cmo) > **arbit value**){
+	cmol = true;
+	if (connected) bluetooth.println('1');
+  } 
   //otherwise store that it is not detected
-  cmol = false;
+  else cmol = false;
 }
-if(bluetooth.available() && cmol == true)  // If stuff was typed in the serial monitor
-{
-  //if the board has detected carbon monoxide, tell the phone
-  bluetooth.println('1');
-}
+
 */
