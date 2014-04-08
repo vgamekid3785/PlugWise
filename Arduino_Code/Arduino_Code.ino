@@ -20,8 +20,8 @@ float cmol = 0;         	// Value for carbon monoxide detection ** Value needs t
 unsigned int setting = 0;       // Value deciding whether or not to turn off power when no slave is detected
 boolean powr = false;
 boolean conekt = false;
-bool calibrated = false; ** needs to be written to flash ** 
-bool safety_auto = false;
+boolean calibrated = false; //** needs to be written to flash ** 
+boolean safety_auto = false;
 float min_value = 0;
 long last1;
 long last0;
@@ -32,7 +32,7 @@ long last0;
 //-----------------------
 void change_power(const int& setting);
 void ambient_light_check(const unsigned int& min_value);
-void carbon_monoxide_check(const bool& connected);
+void carbon_monoxide_check(const boolean& connected);
 
 
 //Set these pins as a software serial connection
@@ -285,12 +285,12 @@ void ambient_light_check(const unsigned int& min_value){
 //----------------Carbon Monoxide Detection------------------
 //-----------------------------------------------------------
 
-/*
+
 //All the code for carbon monoxide detection (needs some tweaks)
 //if carbon monoxide is detected, store that it is
 
-void carbon_monoxide_check(const bool& connected){
-  if(analogRead(cmo) > **arbit value**){
+void carbon_monoxide_check(const boolean& connected){
+  if(analogRead(cmo) > 512){ //512 is arbitrary 
 	cmol = true;
 	if (connected) bluetooth.println('1');
   } 
@@ -298,4 +298,3 @@ void carbon_monoxide_check(const bool& connected){
   else cmol = false;
 }
 
-*/
