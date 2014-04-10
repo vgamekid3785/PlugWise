@@ -1,7 +1,7 @@
 #include <SoftwareSerial.h>  
 #include <Time.h>
 #include <TaskAction.h>
-#include <Schedule.h>
+#include "Schedule.h"
 //************
 // Parse int may not work because i believe it returns long, in that case need to check if we have enough memory
 
@@ -31,6 +31,7 @@ long last1;
 long last0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
 int days[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
+Schedule actions[4]; //Arranged power off, on, safety off, on
 
 //-----------------------
 //--Function Prototypes--
@@ -38,7 +39,7 @@ int days[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
 void change_power(const int& setting);
 void ambient_light_check(const unsigned int& min_value);
 void carbon_monoxide_check(const boolean& connected);
-
+void parse_schedule(Schedule new_schedule);
 
 //Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -178,8 +179,8 @@ void loop()
 	//-------------Scheduling-----------------------
 	else if (val = '(')
 	{
-		//schedule new_schedule;
-		//parse_schedule(new_schedule);
+		//Dchedule new_schedule;
+		//parse_schedule(&new_schedule);
 	}
 
 
@@ -218,23 +219,6 @@ void loop()
         private ticks = floor(end-start / interval);
 
 		//Function parses the schedule that was just sent by the bluetooth 
-		schedule parse_schedule(schedule& new_schedule){
-			int next = bluetooth.parseInt();
-			//****************************************
-			//If this DOES NOT eliminate the next non numeric char from the buffer this WILL NOT WORK
-			//Another read will need to be implemented to clear that char
-			//****************************************
-			time_t start = bluetooth_read_time();
-			int interval = bluetooth.parseInt();
-			time_t end = bluetooth_read_time();
-			//This is the length of time that the schedule will be on for
-			double length = difftime(end,start)/60; //Return is in seconds
-			//How many times the device will have to do the function. length of time of schedule / how often to do the action
-			int ticks = length/interval;
-			//Set the schedule to the parsed data from bluetooth, last pass is what type of function it is: on or off
-			parsed.create(start, interval, ticks, next);
-			return parsed; 
-		}
 
         //options =
           //Schedule
@@ -268,6 +252,41 @@ void loop()
     //----------
     //If user wants to remove a schedule, change the function to NULL so nothing will ever be called if it gets it; 
   */
+  actions[0].check_time();
+  actions[1].check_time();
+  actions[2].check_time();
+  actions[3].check_time();
+  
+}
+
+void temp();
+
+time_t bluetooth_read_time(){
+
+}
+
+//-----------------------------------------------------------
+//---------------------Scheduling----------------------------
+//-----------------------------------------------------------
+void parse_schedule(Schedule new_schedule){
+	//Need to figure out which function based on next ********
+	int next = bluetooth.parseInt();
+	//**Temporarily passing temp
+	//****************************************
+	//If this DOES NOT eliminate the next non numeric char from the buffer this WILL NOT WORK
+	//Another read will need to be implemented to clear that char
+	//****************************************
+	time_t start = bluetooth_read_time();
+	long interval = bluetooth.parseInt();
+	time_t end = bluetooth_read_time();
+	//This is the length of time that the schedule will be on for
+	double length = (end - start)/60; //Return is in seconds
+	//If timer, make ticks 1
+        unsigned int ticks = 1;
+	//Otherwise how many times the device will have to do the function. length of time of schedule / how often to do the action
+	if (length)ticks = ceil(length/interval);
+	//Set the schedule to the parsed data from bluetooth, last pass is function
+	new_schedule.create(start, interval, ticks, temp);
 }
 
 
