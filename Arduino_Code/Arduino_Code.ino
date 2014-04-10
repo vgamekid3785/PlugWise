@@ -1,5 +1,9 @@
 #include <SoftwareSerial.h>  
 #include <Time.h>
+#include <TaskAction.h>
+#include <Schedule.h>
+//************
+// Parse int may not work because i believe it returns long, in that case need to check if we have enough memory
 
 //------------------------
 //Pin Declarations 
@@ -22,10 +26,11 @@ boolean powr = false;
 boolean conekt = false;
 boolean calibrated = false; //** needs to be written to flash ** 
 boolean safety_auto = false;
-float min_value = 0;
+float min_value = 0;      //Needs to be determined though testing
 long last1;
 long last0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
+int days[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
 
 //-----------------------
 //--Function Prototypes--
@@ -73,12 +78,17 @@ void loop()
   // if (Serial.available()) bluetooth.write(Serial.read()); //For debug//
 
   //Sync time from device and schedule 
-  if (conekt){
-    //Send request for time from device
-    //sync_time = time from device
+  //time format hour,minute,second,day,month,year
+  //if (conekt && timeStatus()== timeNotSet){ //*******need to fix timeStatus and timeNotSet
+  //Send request for time from device
+	//bluetooth.write("sync request"); // can be changed arbitrarily 
+	//while(!bluetooth.available());
+	//**this may or may not work** Snyc time from device
+	//sync_time(bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(), bluetooth.parseInt(), bluetooth.parseInt());
     //setTime(sync_time);
+	
     //sync the current timing schedules as well 
-  }
+  // }
 
 
   if(bluetooth.available())  // If the bluetooth sent any characters
@@ -165,6 +175,12 @@ void loop()
       setting = 2;   
       Serial.println("Changed setting to 2"); 
     }
+	//-------------Scheduling-----------------------
+	else if (val = '(')
+	{
+		//schedule new_schedule;
+		//parse_schedule(new_schedule);
+	}
 
 
 
@@ -194,16 +210,31 @@ void loop()
         //Receiving Tasks from bluetooth
         //tuple (type,schedule_start,interval, schedule end, device to change)
 
-        types = off || on || on/off                           //Timer functionality will change the tuple (Android dev)
-        schedule start = (minute,hour,day,month,year);        //Don't allow to be set in the past, set to current time + timer time 
-        schedule end = (minute,hour,day,month,year);          //Don't allow to be set in the past, set to current time + timer time
+        types = off || on                       			  //Timer functionality will change the tuple (Android dev)
+        schedule start = (minute,hour,day,month,year);        //Don't allow to be set in the past, set to current time + timer time both this and next on android end
+        schedule end = (minute,hour,day,month,year);          //Don't allow to be set in the past, set to current time + timer time 
         interval = amount of time between function calls      //lowest user input is minutes, max is monthly (30 days, 43829 minutes), 0 if timer and set into different flash memory
-        device = safety_lights || power;
-        
+        device = safety_lights || power;					  //Not implemented in final version for reason of photoresistor. Future functionality
         private ticks = floor(end-start / interval);
 
-        //How to initiate task 
-        Taskaction task(function, interval, ticks);
+		//Function parses the schedule that was just sent by the bluetooth 
+		schedule parse_schedule(schedule& new_schedule){
+			int next = bluetooth.parseInt();
+			//****************************************
+			//If this DOES NOT eliminate the next non numeric char from the buffer this WILL NOT WORK
+			//Another read will need to be implemented to clear that char
+			//****************************************
+			time_t start = bluetooth_read_time();
+			int interval = bluetooth.parseInt();
+			time_t end = bluetooth_read_time();
+			//This is the length of time that the schedule will be on for
+			double length = difftime(end,start)/60; //Return is in seconds
+			//How many times the device will have to do the function. length of time of schedule / how often to do the action
+			int ticks = length/interval;
+			//Set the schedule to the parsed data from bluetooth, last pass is what type of function it is: on or off
+			parsed.create(start, interval, ticks, next);
+			return parsed; 
+		}
 
         //options =
           //Schedule
@@ -219,6 +250,7 @@ void loop()
         //3 places in flash memory
           //1 for schedule off
           //1 for schedule on
+		  //Maybe safety light on and off implementation
           //1 for timer on/off ?maybe 2
 
         //When data is received, overwrite flash memory, don't change any parameters of the current task, prompt user to overwrite if there is currently a schedule. 
