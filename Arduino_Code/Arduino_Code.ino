@@ -1,6 +1,5 @@
 #include <SoftwareSerial.h>  
 #include <Time.h>
-#include <TaskAction.h>
 #include "Schedule.h"
 //************
 // Parse int may not work because i believe it returns long, in that case need to check if we have enough memory
@@ -80,14 +79,12 @@ void loop()
 
   //Sync time from device and schedule 
   //time format hour,minute,second,day,month,year
-  //if (conekt && timeStatus()== timeNotSet){ //*******need to fix timeStatus and timeNotSet
+  //if (conekt && timeStatus()== timeNotSet){ 
   //Send request for time from device
 	//bluetooth.write("sync request"); // can be changed arbitrarily 
 	//while(!bluetooth.available());
 	//**this may or may not work** Snyc time from device
-	//sync_time(bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(), bluetooth.parseInt(), bluetooth.parseInt());
-    //setTime(sync_time);
-	
+	//setTime(bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(), bluetooth.parseInt(), bluetooth.parseInt());
     //sync the current timing schedules as well 
   // }
 
@@ -179,7 +176,7 @@ void loop()
 	//-------------Scheduling-----------------------
 	else if (val = '(')
 	{
-		//Dchedule new_schedule;
+		//Schedule new_schedule;
 		//parse_schedule(&new_schedule);
 	}
 
@@ -239,7 +236,6 @@ void loop()
 
         //When data is received, overwrite flash memory, don't change any parameters of the current task, prompt user to overwrite if there is currently a schedule. 
     //After writing the data to memory, set state of task to false so it doesn't immediately start. 
-    // **Ask Jake** (Could change the constructor to default to false, seems like best solution)
     //task.tick() is only a check to see if it should call the function again based on the last time it was called, current time, and the interval
     
       //Running Tasks
@@ -262,7 +258,17 @@ void loop()
 void temp();
 
 time_t bluetooth_read_time(){
-
+	int hour,minute,second,day,month,year;
+	tmElements_t temp;
+	temp.Hour = bluetooth.parseInt();
+	temp.Minute = bluetooth.parseInt();
+	temp.Second = 0;
+	temp.Day = bluetooth.parseInt();
+	temp.Month = bluetooth.parseInt();
+	temp.Year = bluetooth.parseInt();	
+        time_t timet;
+        timet = makeTime(temp);
+	return timet;
 }
 
 //-----------------------------------------------------------
@@ -272,19 +278,15 @@ void parse_schedule(Schedule new_schedule){
 	//Need to figure out which function based on next ********
 	int next = bluetooth.parseInt();
 	//**Temporarily passing temp
-	//****************************************
-	//If this DOES NOT eliminate the next non numeric char from the buffer this WILL NOT WORK
-	//Another read will need to be implemented to clear that char
-	//****************************************
 	time_t start = bluetooth_read_time();
 	long interval = bluetooth.parseInt();
 	time_t end = bluetooth_read_time();
 	//This is the length of time that the schedule will be on for
 	double length = (end - start)/60; //Return is in seconds
 	//If timer, make ticks 1
-        unsigned int ticks = 1;
+    unsigned int ticks = 1;
 	//Otherwise how many times the device will have to do the function. length of time of schedule / how often to do the action
-	if (length)ticks = ceil(length/interval);
+	if (length) ticks = (int)ceil(length/interval);
 	//Set the schedule to the parsed data from bluetooth, last pass is function
 	new_schedule.create(start, interval, ticks, temp);
 }

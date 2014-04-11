@@ -4,9 +4,9 @@ class Schedule {
 public: 
 //Constructors
 Schedule(){
-	double hit_time=0;
-        double interval=0;
-        double ticks = 0;
+	time_t hit_time=0;
+        long interval=0;
+        unsigned int ticks = 0;
 }
 //~Schedule();
 
