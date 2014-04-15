@@ -13,7 +13,8 @@
 #define led 13         // Pin used to control safety LEDs
 #define cmo 12         // Pin used to read from the carbon monoxide detector
 #define con 6          // check if the BT module is paired
-#define photor 5       
+#define photor 5   
+#define swit 7    
 
 //-----------------------
 //Variable Declarations
@@ -53,7 +54,8 @@ void setup()
   pinMode(led, OUTPUT);           // Set LED pin to output
   digitalWrite(led, LOW);         // Initalize the safety LEDs off initially
   pinMode(con,INPUT);             // Set the connection pin to input 
-  // pinMode(cmo, INPUT);
+  pinMode(cmo, INPUT);
+  pinMode(swit, INPUT);
 }
 
 void loop()
@@ -73,6 +75,18 @@ void loop()
   }
   else {
    conekt = false; 
+  }
+
+  //Manual override for a physical switch to change the state of the device
+  if(digitalRead(swit)==HIGH){
+      if(powr == false){
+          powr = true;
+          digitalWrite(power, HIGH);
+      }
+      else{
+        powr = false;
+        digitalWrite(power,LOW);
+      }
   }
   
   // if (Serial.available()) bluetooth.write(Serial.read()); //For debug//
