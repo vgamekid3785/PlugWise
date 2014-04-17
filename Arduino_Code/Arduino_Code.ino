@@ -31,7 +31,8 @@ long last1;
 long last0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
 int days[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
-Schedule actions[4]; //Arranged power off, on, safety off, on
+Schedule blank;
+Schedule actions[4] = {blank,blank,blank,blank}; //Arranged power off, on, safety off, on
 
 //-----------------------
 //--Function Prototypes--
@@ -40,6 +41,7 @@ void change_power(const int& setting);
 void ambient_light_check(const unsigned int& min_value);
 void carbon_monoxide_check(const boolean& connected);
 void parse_schedule(Schedule new_schedule);
+time_t bluetooth_read_time();
 
 //Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -56,6 +58,9 @@ void setup()
   pinMode(con,INPUT);             // Set the connection pin to input 
   pinMode(cmo, INPUT);
   pinMode(swit, INPUT);
+
+
+  //**Read schedule data from EEPROM**
 }
 
 void loop()
@@ -97,9 +102,7 @@ void loop()
   //Send request for time from device
 	//bluetooth.write("sync request"); // can be changed arbitrarily 
 	//while(!bluetooth.available());
-	//**this may or may not work** Snyc time from device
-	//setTime(bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(),bluetooth.parseInt(), bluetooth.parseInt(), bluetooth.parseInt());
-    //sync the current timing schedules as well 
+	//setTime(bluetooth_read_time());
   // }
 
 
@@ -190,8 +193,8 @@ void loop()
 	//-------------Scheduling-----------------------
 	else if (val = '(')
 	{
-		//Schedule new_schedule;
-		//parse_schedule(&new_schedule);
+		Schedule new_schedule = parse_schedule();
+        //Store in EEPROM
 	}
 
 
@@ -262,38 +265,47 @@ void loop()
     //----------
     //If user wants to remove a schedule, change the function to NULL so nothing will ever be called if it gets it; 
   */
-  actions[0].check_time();
-  actions[1].check_time();
-  actions[2].check_time();
-  actions[3].check_time();
+  for (int i=0; i < 4; ++i){
+	if (actions[i].ticks > 0) actions[i].check_time();
+  }
   
 }
 
-void temp();
+void print_time(time_t stime){
+	Serial.println("Time_t has:");
+	Serial.println(second(stime));
+	Serial.println(minute(stime));
+	Serial.println(hour(stime));
+	Serial.println(day(stime));
+	Serial.println(month(stime));
+	Serial.println(year(stime));
+	Serial.println("End Time_t --");
+}
 
+void temp_func(){}
+//year needs to be current date - 1970
 time_t bluetooth_read_time(){
-	int hour,minute,second,day,month,year;
 	tmElements_t temp;
-	temp.Hour = bluetooth.parseInt();
+	temp.Second = bluetooth.parseInt();
 	temp.Minute = bluetooth.parseInt();
-	temp.Second = 0;
+	temp.Hour = bluetooth.parseInt();
 	temp.Day = bluetooth.parseInt();
 	temp.Month = bluetooth.parseInt();
 	temp.Year = bluetooth.parseInt();	
-        time_t timet;
-        timet = makeTime(temp);
+    time_t timet;
+    timet = makeTime(temp);
 	return timet;
 }
 
 //-----------------------------------------------------------
 //---------------------Scheduling----------------------------
 //-----------------------------------------------------------
-void parse_schedule(Schedule new_schedule){
+Schedule parse_schedule(){
 	//Need to figure out which function based on next ********
-	int next = bluetooth.parseInt();
+	int next = Serial.parseInt();
 	//**Temporarily passing temp
 	time_t start = bluetooth_read_time();
-	long interval = bluetooth.parseInt();
+	long interval = Serial.parseInt();
 	time_t end = bluetooth_read_time();
 	//This is the length of time that the schedule will be on for
 	double length = (end - start)/60; //Return is in seconds
@@ -301,8 +313,10 @@ void parse_schedule(Schedule new_schedule){
     unsigned int ticks = 1;
 	//Otherwise how many times the device will have to do the function. length of time of schedule / how often to do the action
 	if (length) ticks = (int)ceil(length/interval);
-	//Set the schedule to the parsed data from bluetooth, last pass is function
-	new_schedule.create(start, interval, ticks, temp);
+	//Set the schedule to the parsed data from Serial, last pass is function
+      Schedule return_schedule;
+	return_schedule.create(start, interval, ticks, temp_func);
+	return return_schedule;
 }
 
 
