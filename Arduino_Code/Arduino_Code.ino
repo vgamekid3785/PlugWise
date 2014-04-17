@@ -46,6 +46,7 @@ void main_power_on();
 void main_power_off();
 void safety_lights_on();
 void safety_lights_off();
+void sync_time(); 
 
 //Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -66,6 +67,16 @@ void setup()
   //Maybe set first byte of eeprom as a bool to see if it has been initialized or not (whether or not to read from it in set up or write it blank)
 }
 
+void sync_time(){
+	//Sync time from device and schedule 
+	//time format second,hour,minute,day,month,year
+	//Send request for time from device
+	bluetooth.write("s"); // can be changed arbitrarily 
+	//Wait for response from device
+	while(!bluetooth.available());
+	setTime(bluetooth_read_time());
+}
+
 void loop()
 {
 //  if (bluetooth.available())
@@ -79,6 +90,7 @@ void loop()
   }
  
   if(last1 - last0 > 500) {
+	if (timeStatus()== timeNotSet) sync_time();
     conekt = true;
   }
   else {
@@ -97,17 +109,7 @@ void loop()
       }
   }
   
-  // if (Serial.available()) bluetooth.write(Serial.read()); //For debug//
-
-  //Sync time from device and schedule 
-  //time format hour,minute,second,day,month,year
-  //if (conekt && timeStatus()== timeNotSet){ 
-  //Send request for time from device
-	//bluetooth.write("sync request"); // can be changed arbitrarily 
-	//while(!bluetooth.available());
-	//setTime(bluetooth_read_time());
-  // }
-
+  // if (Serial.available()) bluetooth.write(Serial.read()); //For debug/
 
   if(bluetooth.available())  // If the bluetooth sent any characters
   {
