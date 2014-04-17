@@ -26,7 +26,7 @@ boolean powr = false;
 boolean conekt = false;
 boolean calibrated = false; //** needs to be written to flash ** 
 boolean safety_auto = false;
-float min_value = 0;      //Needs to be determined though testing
+float min_value = 512.0;      //Needs to be determined though testing
 long last1;
 long last0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
@@ -42,6 +42,10 @@ void ambient_light_check(const unsigned int& min_value);
 void carbon_monoxide_check(const boolean& connected);
 void parse_schedule(Schedule new_schedule);
 time_t bluetooth_read_time();
+void main_power_on();
+void main_power_off();
+void safety_lights_on();
+void safety_lights_off();
 
 //Set these pins as a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -129,15 +133,17 @@ void loop()
     }
 
     // if the value received is S turn on the safety lights 
-    else if(val == 'S' && !safety_auto)
+    else if(val == 'S')
     {
         digitalWrite(led, HIGH);
+		safety_auto = false;
         Serial.println("Turned on safety lights!");
     } 
     // if the value received is U turn off the safety lights
-    else if(val == 'U' && !safety_auto)
+    else if(val == 'U')
     {
         digitalWrite(led, LOW);
+		safety_auto = false;
         Serial.println("Turned off safety lights!");
     } 
     //------------Safety Light Calibration---------- Command to calibrate the value for the photo resistor
@@ -167,7 +173,7 @@ void loop()
       Serial.println("Safety LED lights auto mode");
     }
     else if (val == 5){
-      safety_auto = false;
+	  safety_auto = false;
       Serial.println("Safety LED lights manual mode");
     }
 
@@ -196,6 +202,11 @@ void loop()
 		Schedule new_schedule = parse_schedule();
         //Store in EEPROM
 	}
+	//Remove a schedule, just sets ticks = 0;
+	else if (val = 'R'){
+		val = bluetooth.read();
+		actions[(int)val].ticks = 0;
+	}
 
 
 
@@ -209,66 +220,35 @@ void loop()
   else if (safety_auto) ambient_light_check(min_value);
   //CO check
   carbon_monoxide_check(conekt);
-  
-  //---------------------------------------------
-  //---------------Tasks Section-----------------
-  //---------------------------------------------
-  /*
-    //Tasks are either to turn something on, off or both
-    //Repeated or one time reflected in the schedule end / interval 
-    //timer is essentially identical, except schedule start is current time + timer time and interval = 0;
-  
-    //In set up, initialize the three places in flash memory to tasks with NULL functions just so there's something there and we don't risk calling anything that doesn't exist
-
-      //Settings for calendar events (task_action.h)
-    
-        //Receiving Tasks from bluetooth
-        //tuple (type,schedule_start,interval, schedule end, device to change)
-
-        types = off || on                       			  //Timer functionality will change the tuple (Android dev)
-        schedule start = (minute,hour,day,month,year);        //Don't allow to be set in the past, set to current time + timer time both this and next on android end
-        schedule end = (minute,hour,day,month,year);          //Don't allow to be set in the past, set to current time + timer time 
-        interval = amount of time between function calls      //lowest user input is minutes, max is monthly (30 days, 43829 minutes), 0 if timer and set into different flash memory
-        device = safety_lights || power;					  //Not implemented in final version for reason of photoresistor. Future functionality
-        private ticks = floor(end-start / interval);
-
-		//Function parses the schedule that was just sent by the bluetooth 
-
-        //options =
-          //Schedule
-          //(off,schedule_start,interval, schedule end, device)
-          //(on,schedule_start,interval, schedule end, device)
-          //(on+off,schedule_start_on, interval_on, schedule_end_on, schedule_end_on, schedule_start_off, Interval_off, schedule_end_off,device)
-            //****on off translates to an on schedule and an off schedule although it is passed as one (can be passed as two if easier for android dev, probably best option **jake input**)****
-
-          //Timer; 
-          //(off,schedule_start, 0, schedule start, device)
-          //(on,schedule_start, 0, schedule start, device)
-
-        //3 places in flash memory
-          //1 for schedule off
-          //1 for schedule on
-		  //Maybe safety light on and off implementation
-          //1 for timer on/off ?maybe 2
-
-        //When data is received, overwrite flash memory, don't change any parameters of the current task, prompt user to overwrite if there is currently a schedule. 
-    //After writing the data to memory, set state of task to false so it doesn't immediately start. 
-    //task.tick() is only a check to see if it should call the function again based on the last time it was called, current time, and the interval
-    
-      //Running Tasks
-    for task in schedule/timer
-      if (current time > schedule start time && !task.GetCurrentState):
-        task.Enable(); 
-      task.tick()
-    //----------
-    //Misc notes
-    //----------
-    //If user wants to remove a schedule, change the function to NULL so nothing will ever be called if it gets it; 
-  */
+  //Scheduling checks 
   for (int i=0; i < 4; ++i){
 	if (actions[i].ticks > 0) actions[i].check_time();
   }
   
+}
+//Functions for Scheduling 
+//Main power options change out of range setting to constant when called by Scheduler
+void main_on(){
+	digitalWrite(power, HIGH);
+    powr = true;
+	setting = 3;
+    Serial.println("Turned on power! (Schedule)");
+}
+void main_off(){
+	digitalWrite(power, LOW);
+    powr = false;
+	setting = 3;
+    Serial.println("Turned off power! (Schedule)");
+}
+void safety_on(){
+	digitalWrite(led, HIGH);
+	safety_auto = false;
+    Serial.println("Turned on safety lights! (Schedule)");
+}
+void safety_off(){
+	digitalWrite(led, LOW);
+	safety_auto = false;
+    Serial.println("Turned off safety lights! (Schedule)");
 }
 
 void print_time(time_t stime){
@@ -282,7 +262,6 @@ void print_time(time_t stime){
 	Serial.println("End Time_t --");
 }
 
-void temp_func(){}
 //year needs to be current date - 1970
 time_t bluetooth_read_time(){
 	tmElements_t temp;
@@ -300,10 +279,9 @@ time_t bluetooth_read_time(){
 //-----------------------------------------------------------
 //---------------------Scheduling----------------------------
 //-----------------------------------------------------------
+//For next, 0 = main on, 1 = main_off, 2 = safety_on, 3 = safety_off
 Schedule parse_schedule(){
-	//Need to figure out which function based on next ********
 	int next = Serial.parseInt();
-	//**Temporarily passing temp
 	time_t start = bluetooth_read_time();
 	long interval = Serial.parseInt();
 	time_t end = bluetooth_read_time();
@@ -314,8 +292,12 @@ Schedule parse_schedule(){
 	//Otherwise how many times the device will have to do the function. length of time of schedule / how often to do the action
 	if (length) ticks = (int)ceil(length/interval);
 	//Set the schedule to the parsed data from Serial, last pass is function
-      Schedule return_schedule;
-	return_schedule.create(start, interval, ticks, temp_func);
+    Schedule return_schedule;
+	//Changes function based on next value passed and returns the schedule
+	if (next == 0) return_schedule.create(start, interval, ticks, main_on);
+	else if (next == 1) return_schedule.create(start, interval, ticks, main_off);
+	else if (next == 2) return_schedule.create(start, interval, ticks, safety_on);
+	else return_schedule.create(start, interval, ticks, safety_off);
 	return return_schedule;
 }
 
@@ -323,8 +305,7 @@ Schedule parse_schedule(){
 
 //Function to change the state of the main power based on the passed setting 
 void change_power(const int& set){
-  if (set < 2)
-  {
+  if (set < 2){
     if (set == 0  && powr){
       digitalWrite(power, LOW);
       Serial.println("Turned off power! (Disconnect)");
