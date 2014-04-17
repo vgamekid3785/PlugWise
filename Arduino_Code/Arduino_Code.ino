@@ -62,9 +62,8 @@ void setup()
   pinMode(con,INPUT);             // Set the connection pin to input 
   pinMode(cmo, INPUT);
   pinMode(swit, INPUT);
-
-
   //**Read schedule data from EEPROM**
+  //Maybe set first byte of eeprom as a bool to see if it has been initialized or not (whether or not to read from it in set up or write it blank)
 }
 
 void loop()
@@ -200,16 +199,20 @@ void loop()
 	else if (val = '(')
 	{
 		Schedule new_schedule = parse_schedule();
+		//Set correct action depending on schedule type
+		if (new_schedule.func == main_on) actions[0] = new_schedule;
+		if (new_schedule.func == main_off) actions[1] = new_schedule;
+		if (new_schedule.func == safety_on) actions[2] = new_schedule;
+		if (new_schedule.func == safety_off) actions[3] = new_schedule;
         //Store in EEPROM
 	}
 	//Remove a schedule, just sets ticks = 0;
 	else if (val = 'R'){
+		//you have to pass in another val after it to specify which schedule to remove
 		val = bluetooth.read();
-		actions[(int)val].ticks = 0;
+		actions[((int)val-48)].ticks = 0;
+		//Change it in EEPROM 
 	}
-
-
-
     // delay before next command occurs 
     delay(50);
   }
@@ -224,10 +227,10 @@ void loop()
   for (int i=0; i < 4; ++i){
 	if (actions[i].ticks > 0) actions[i].check_time();
   }
-  
 }
 //Functions for Scheduling 
 //Main power options change out of range setting to constant when called by Scheduler
+//Set to 3 for debugging 
 void main_on(){
 	digitalWrite(power, HIGH);
     powr = true;
@@ -250,7 +253,7 @@ void safety_off(){
 	safety_auto = false;
     Serial.println("Turned off safety lights! (Schedule)");
 }
-
+//Prints out the time to the Serial
 void print_time(time_t stime){
 	Serial.println("Time_t has:");
 	Serial.println(second(stime));
@@ -262,7 +265,8 @@ void print_time(time_t stime){
 	Serial.println("End Time_t --");
 }
 
-//year needs to be current date - 1970
+//Reads a time from bluetooth Serial
+//year needs to be current date - 1970 
 time_t bluetooth_read_time(){
 	tmElements_t temp;
 	temp.Second = bluetooth.parseInt();
@@ -301,8 +305,6 @@ Schedule parse_schedule(){
 	return return_schedule;
 }
 
-
-
 //Function to change the state of the main power based on the passed setting 
 void change_power(const int& set){
   if (set < 2){
@@ -319,12 +321,9 @@ void change_power(const int& set){
   }
 }
 
-
-
 //-----------------------------------------------------------
 //--------------------Photoresistor--------------------------
 //-----------------------------------------------------------
-
 
 void ambient_light_check(const unsigned int& min_value){
   //If the ambient light is less than the dark value and the LED's arn't already on, turn them on
@@ -346,7 +345,6 @@ void ambient_light_check(const unsigned int& min_value){
 //-----------------------------------------------------------
 //----------------Carbon Monoxide Detection------------------
 //-----------------------------------------------------------
-
 
 //All the code for carbon monoxide detection (needs some tweaks)
 //if carbon monoxide is detected, store that it is

@@ -1,4 +1,4 @@
-#include <Schedule.h>
+#include "Schedule.h"
 #include <Time.h>
 
 boolean first = true;
@@ -91,8 +91,11 @@ void loop(){
         print_time(now());
         //Serial.println(test_sch.interval);
         Serial.println(test_sch.ticks);
-        
+        char a = '1';
+		Serial.println("A");
+		Serial.println((int)a);
         //Have to change schedule function in main code
         test_sch.check_time();
         delay(5000);
+		if (test_sch.func == func) Serial.println("HIt");
 }
