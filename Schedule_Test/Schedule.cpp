@@ -1,10 +1,10 @@
 #include "Schedule.h"
 
 void Schedule::create(const time_t new_time, const long new_inter, const unsigned int new_ticks, void (*function)()){
-	change_time(new_time);
-	change_interval(new_inter);
-	change_ticks(new_ticks);
-	change_type(function);
+	hit_time = new_time;
+	interval = new_inter;
+	ticks = new_ticks;
+	func = function;
 }
 
 void Schedule::check_time(){

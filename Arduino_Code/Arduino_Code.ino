@@ -1,8 +1,6 @@
 #include <SoftwareSerial.h>  
 #include <Time.h>
 #include "Schedule.h"
-//************
-// Parse int may not work because i believe it returns long, in that case need to check if we have enough memory
 
 //------------------------
 //Pin Declarations 
@@ -13,24 +11,24 @@
 #define led 13         // Pin used to control safety LEDs
 #define cmo 12         // Pin used to read from the carbon monoxide detector
 #define con 6          // check if the BT module is paired
-#define photor 5   
-#define swit 7    
+#define photor 5   	   //Pin of photoresistor
+#define swit 7    	   //Pin of switch
 
 //-----------------------
 //Variable Declarations
 //-----------------------
-char val;                     // Value received from bluetooth serial
-float cmol = 0;         	// Value for carbon monoxide detection ** Value needs to be written ** 
+char val;                    	// Value received from bluetooth serial
+float cmol = 0;         		// Value for carbon monoxide detection ** Value needs to be written ** 
 unsigned int setting = 0;       // Value deciding whether or not to turn off power when no slave is detected
-boolean powr = false;
-boolean conekt = false;
-boolean calibrated = false; //** needs to be written to flash ** 
-boolean safety_auto = false;
-float min_value = 512.0;      //Needs to be determined though testing
-long last1;
+boolean powr = false;			// Whether or not power is flowing to the device
+boolean conekt = false; 		// Is the android connected from bluetooth
+boolean calibrated = false;
+boolean safety_auto = false;	// Are the safety lights set to automatically turn on
+float min_value = 512.0;      	// Needs to be determined though testing
+long last1;						// Values for checking if connected
 long last0;
+boolean debounce = 0;
 //time_t sync_time;             // Value pulled from device to sync internal clock
-int days[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
 Schedule blank;
 Schedule actions[4] = {blank,blank,blank,blank}; //Arranged power off, on, safety off, on
 
@@ -78,10 +76,7 @@ void sync_time(){
 }
 
 void loop()
-{
-//  if (bluetooth.available())
-//    Serial.write(bluetooth.read());
-  
+{ 
   if(digitalRead(con) == HIGH) {
     last1 = millis();
   }
@@ -97,8 +92,12 @@ void loop()
    conekt = false; 
   }
 
+  if(digitalRead(swit)==LOW){
+	debounce = false;
+  }
   //Manual override for a physical switch to change the state of the device
-  if(digitalRead(swit)==HIGH){
+  if(digitalRead(swit)==HIGH && !debounce){
+	  debounce = true;
       if(powr == false){
           powr = true;
           digitalWrite(power, HIGH);
@@ -168,12 +167,12 @@ void loop()
 
     //--------------Setting Changes-----------------
 
-    //--------------Safety Light Settings----------- ******************* don't let it set to auto without calibration, calibration needs to be written to flash***************
-    else if (val == 4 && calibrated){
+    //--------------Safety Light Settings-----------  ****need to hardcode calibration into it.
+    else if (val == '4' && calibrated){
       safety_auto = true;
       Serial.println("Safety LED lights auto mode");
     }
-    else if (val == 5){
+    else if (val == '5'){
 	  safety_auto = false;
       Serial.println("Safety LED lights manual mode");
     }
@@ -199,7 +198,7 @@ void loop()
     }
 	//-------------Scheduling-----------------------
 	else if (val = '(')
-	{
+	{	
 		Schedule new_schedule = parse_schedule();
 		//Set correct action depending on schedule type
 		if (new_schedule.func == main_on) actions[0] = new_schedule;
@@ -291,6 +290,7 @@ Schedule parse_schedule(){
 	time_t start = bluetooth_read_time();
 	long interval = Serial.parseInt();
 	time_t end = bluetooth_read_time();
+	bluetooth.flush();
 	//This is the length of time that the schedule will be on for
 	double length = (end - start)/60; //Return is in seconds
 	//If timer, make ticks 1
