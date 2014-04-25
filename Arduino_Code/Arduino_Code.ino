@@ -313,13 +313,15 @@ void change_power(const int& set){
     if (set == 0  && powr){
       digitalWrite(power, LOW);
       Serial.println("Turned off power! (Disconnect)");
+      powr = false;
     }
     else if (setting == 1 && !powr){
       digitalWrite(power, HIGH);
       Serial.println("Turned on power! (Disconnect)");
+      powr = true;
     }
     //Set 0 will write low and Set 1 will write high
-    powr = set;
+    // powr = set;
   }
 }
 
