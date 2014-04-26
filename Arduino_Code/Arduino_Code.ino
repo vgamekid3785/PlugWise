@@ -24,7 +24,8 @@ boolean powr = false;			// Whether or not power is flowing to the device
 boolean conekt = false; 		// Is the android connected from bluetooth
 boolean calibrated = false;
 boolean safety_auto = false;	// Are the safety lights set to automatically turn on
-float min_value = 512.0;      	// Needs to be determined though testing
+boolean ignore = false;			// Bool to ignore the conekt setting if push button is pushed
+float min_value = 100.0;      	// Needs to be determined though testing
 long last1;						// Values for checking if connected
 long last0;
 boolean debounce = 0;
@@ -73,6 +74,7 @@ void sync_time(){
 	//Wait for response from device
 	while(!bluetooth.available());
 	setTime(bluetooth_read_time());
+	bluetooth.println("Received time");
 }
 
 void loop()
@@ -85,20 +87,26 @@ void loop()
   }
  
   if(last1 - last0 > 500) {
-	if (timeStatus()== timeNotSet) sync_time();
-    conekt = true;
+	if (timeStatus()== timeNotSet) sync_time(); 
+          // delay(5000);
+          // Serial.println("Current time"); 
+          // print_time(now()); 
+        // }    
+        conekt = true;
   }
   else {
    conekt = false; 
   }
 
-  if(digitalRead(swit)==LOW){
+  if(digitalRead(swit)==HIGH){
 	debounce = false;
   }
   //Manual override for a physical switch to change the state of the device
-  if(digitalRead(swit)==HIGH && !debounce){
+  if(digitalRead(swit)==LOW && !debounce){
+	  if (!conekt) ignore = true;
 	  debounce = true;
       if(powr == false){
+		  //Serial.println("Changing power\n%%%%%%%55\n%%%%%%%%%%%%%%\n%%%%%%%%%%%%%");
           powr = true;
           digitalWrite(power, HIGH);
       }
@@ -122,6 +130,7 @@ void loop()
     {
         digitalWrite(power, HIGH);
         powr = true;
+		ignore = false;
         Serial.println("Turned on power! (Command)");
     } 
     // if the value received is L turn off power to the socket
@@ -129,6 +138,7 @@ void loop()
     {
         digitalWrite(power, LOW);
         powr = false;
+		ignore = false;
         Serial.println("Turned off power! (Command)");
     }
 
@@ -182,18 +192,21 @@ void loop()
     else if(val == '1')
     {
         setting = 0;
+		ignore = false;
         Serial.println("Changed setting to 0");
     }
     // if the value received is H change setting to 1, If the use wants the device to turn on when they go out of range
     else if(val == '2')
     {
         setting = 1;
+		ignore = false;
         Serial.println("Changed setting to 1");
     }
     // if the value received is A change setting to 2, If the user wants the device to retain it's current power state when they go out of range
     else if(val == '3')
     {
       setting = 2;   
+	  ignore = false;
       Serial.println("Changed setting to 2"); 
     }
 	//-------------Scheduling-----------------------
@@ -205,7 +218,7 @@ void loop()
 		if (new_schedule.func == main_off) actions[1] = new_schedule;
 		if (new_schedule.func == safety_on) actions[2] = new_schedule;
 		if (new_schedule.func == safety_off) actions[3] = new_schedule;
-        //Store in EEPROM
+                //Store in EEPROM
 	}
 	//Remove a schedule, just sets ticks = 0;
 	else if (val = 'R'){
@@ -233,26 +246,34 @@ void loop()
 //Main power options change out of range setting to constant when called by Scheduler
 //Set to 3 for debugging 
 void main_on(){
-	digitalWrite(power, HIGH);
-    powr = true;
-	setting = 3;
-    Serial.println("Turned on power! (Schedule)");
+    if(!powr){
+      digitalWrite(power, HIGH);
+      powr = true;
+      setting = 3;
+      Serial.println("Turned on power! (Schedule)");
+    }
 }
 void main_off(){
-	digitalWrite(power, LOW);
-    powr = false;
-	setting = 3;
-    Serial.println("Turned off power! (Schedule)");
+    if(powr){
+      digitalWrite(power, LOW);
+      powr = false;
+      setting = 3;
+      Serial.println("Turned off power! (Schedule)");
+    }
 }
 void safety_on(){
-	digitalWrite(led, HIGH);
-	safety_auto = false;
+  if(digitalRead(led) == LOW){
+    digitalWrite(led, HIGH);
+    safety_auto = false;
     Serial.println("Turned on safety lights! (Schedule)");
+  }
 }
 void safety_off(){
-	digitalWrite(led, LOW);
-	safety_auto = false;
+  if(digitalRead(led) == HIGH){
+    digitalWrite(led, LOW);
+    safety_auto = false;
     Serial.println("Turned off safety lights! (Schedule)");
+  }
 }
 //Prints out the time to the Serial
 void print_time(time_t stime){
@@ -275,7 +296,13 @@ time_t bluetooth_read_time(){
 	temp.Hour = bluetooth.parseInt();
 	temp.Day = bluetooth.parseInt();
 	temp.Month = bluetooth.parseInt();
-	temp.Year = bluetooth.parseInt();	
+	temp.Year = bluetooth.parseInt();
+	// Serial.println(temp.Second);	
+	// Serial.println(temp.Minute);	
+	// Serial.println(temp.Hour);	
+	// Serial.println(temp.Day);	
+	// Serial.println(temp.Month);	
+	// Serial.println(temp.Year);		
     time_t timet;
     timet = makeTime(temp);
 	return timet;
@@ -286,9 +313,11 @@ time_t bluetooth_read_time(){
 //-----------------------------------------------------------
 //For next, 0 = main on, 1 = main_off, 2 = safety_on, 3 = safety_off
 Schedule parse_schedule(){
-	int next = Serial.parseInt();
+	int type = bluetooth.parseInt();
+	//Serial.println("Start time:");
 	time_t start = bluetooth_read_time();
-	long interval = Serial.parseInt();
+	int interval = bluetooth.parseInt();
+	//Serial.println("End time:");
 	time_t end = bluetooth_read_time();
 	bluetooth.flush();
 	//This is the length of time that the schedule will be on for
@@ -297,25 +326,32 @@ Schedule parse_schedule(){
     unsigned int ticks = 1;
 	//Otherwise how many times the device will have to do the function. length of time of schedule / how often to do the action
 	if (length) ticks = (int)ceil(length/interval);
+	// Serial.println("Parsed Schedule)");
+	// Serial.println(type);
+	// print_time(start);
+	// Serial.println(interval);
+	// Serial.println(ticks);
 	//Set the schedule to the parsed data from Serial, last pass is function
-    Schedule return_schedule;
+	Schedule return_schedule; 
 	//Changes function based on next value passed and returns the schedule
-	if (next == 0) return_schedule.create(start, interval, ticks, main_on);
-	else if (next == 1) return_schedule.create(start, interval, ticks, main_off);
-	else if (next == 2) return_schedule.create(start, interval, ticks, safety_on);
+	if (type == 0) return_schedule.create(start, interval, ticks, main_on);
+	else if (type == 1) return_schedule.create(start, interval, ticks, main_off);
+	else if (type == 2) return_schedule.create(start, interval, ticks, safety_on);
 	else return_schedule.create(start, interval, ticks, safety_off);
 	return return_schedule;
 }
 
 //Function to change the state of the main power based on the passed setting 
 void change_power(const int& set){
-  if (set < 2){
+  //Serial.println(powr);
+  if (set < 2 && !ignore){
     if (set == 0  && powr){
+	  //Serial.println("Turning off power!\n------------\n------------\n\n$$$$$$$$$$$\n");
       digitalWrite(power, LOW);
       Serial.println("Turned off power! (Disconnect)");
       powr = false;
     }
-    else if (setting == 1 && !powr){
+    else if (set == 1 && !powr){
       digitalWrite(power, HIGH);
       Serial.println("Turned on power! (Disconnect)");
       powr = true;

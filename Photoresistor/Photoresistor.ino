@@ -1,4 +1,4 @@
-#define photor 5   
+#define photor A5   
 #define led 13
 
 int min_value = 0;
@@ -6,11 +6,19 @@ int min_value = 0;
 
 void setup(){
 	Serial.begin(9600);
-	digitalWrite(led,LOW);
+        pinMode(photor,INPUT);
+	pinMode(led,OUTPUT);
 }
 
 void loop(){
-	ambient_light_check(min_value);
+        while(!Serial.available());
+        char a = Serial.read();
+        if (a == 'H') digitalWrite(led,HIGH);
+        if (a == 'L') digitalWrite(led,LOW);
+        Serial.println(digitalRead(led));
+        //Serial.println(voltage);
+        //Serial.println(analogRead(photor));
+	//ambient_light_check(min_value);
 }
 
 
@@ -27,6 +35,5 @@ void ambient_light_check(const unsigned int& min_value){
   }
   
   // print out the value you read:
-  //Serial.println(voltage);
-  //Serial.println(sensorValue);
+  
 }
