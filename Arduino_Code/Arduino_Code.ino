@@ -12,39 +12,39 @@
 #define cmo 12         	// Pin used to read from the carbon monoxide detector
 #define con 6         	// check pin if the BT module is paired
 #define photor A6   	// Pin of photoresistor
-#define swit 5    	   	// Pin of switch
+#define swit 5         	// Pin of switch
 
 //-----------------------
 //Variable Declarations
 //-----------------------
-char val;                    	// Value received from bluetooth serial
-boolean cmol = false;        	// Bool to make sure duplicate notifications are not pushed to device
-float co_val = 500;				// Danger value for the carbon monoxide detector
-unsigned int setting = 0;       // Value deciding whether or not to turn off power when no slave is detected
-boolean powr = false;			// Whether or not power is flowing to the device
-boolean conekt = false; 		// Is the android connected from bluetooth
+char val;	// Value received from bluetooth serial
+boolean cmol = false;	// Bool to make sure duplicate notifications are not pushed to device
+float co_val = 500;		//Danger value for the carbon monoxide detector
+unsigned int setting = 0;	// Value deciding whether or not to turn off power when no slave is detected
+boolean powr = false;	// Whether or not power is flowing to the device
+boolean conekt = false;		// Is the android connected from bluetooth
 boolean safety_auto = true;		// Are the safety lights set to automatically turn on
-boolean ignore = false;			// Bool to ignore the conekt setting if push button is pushed
-float min_value = 100.0;      	// Dark value for photoresistor to turn on safety lights
-long last1;						// Values for checking if connected
+boolean ignore = false;		// Bool to ignore the conekt setting if push button is pushed
+float min_value = 100.0;	// Dark value for photoresistor to turn on safety lights
+long last1;		// Values for checking if connected
 long last0;
-boolean debounce = false;		// Bool to make sure the device only changes once per push button click
-Schedule blank;					// Blank schedule to keep in storage
+boolean debounce = false;	// Bool to make sure the device only changes once per push button click
+Schedule blank;		// Blank schedule to keep in storage
 Schedule actions[4] = {blank,blank,blank,blank}; //Arranged power off, on, safety off, on
 
 //-----------------------
 //--Function Prototypes--
 //-----------------------
-void change_power(const int& setting);						//Change power based on setting paseed in
+void change_power(const int& setting);		//Change power based on setting paseed in
 void ambient_light_check(const unsigned int& min_value);	//Check the ambient light and turn the safety lights on if it is below the dark value
-void carbon_monoxide_check(const boolean& connected);		//Check for carbon monoxide in the air
-void parse_schedule(Schedule new_schedule);					//Scheduler parser from the bluetooth buffer
-time_t bluetooth_read_time();								//Reads a time from the bluetooth and returns a type time_t
-void main_power_on();										//Scheduling functions
-void main_power_off();										//
-void safety_lights_on();									//
-void safety_lights_off();									//
-void sync_time(); 											//Syncs the internal clock to the time given from the arduino
+void carbon_monoxide_check(const boolean& connected);	//Check for carbon monoxide in the air
+void parse_schedule(Schedule new_schedule);		//Scheduler parser from the bluetooth buffer
+time_t bluetooth_read_time();	//Reads a time from the bluetooth and returns a type time_t
+void main_power_on();	//Scheduling functions
+void main_power_off();	//
+void safety_lights_on();	//
+void safety_lights_off();	//
+void sync_time(); 	//Syncs the internal clock to the time given from the arduino
 
 //Set the bluetooth to a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
@@ -53,15 +53,15 @@ SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
 void setup()
 {
   Serial.begin(9600);             // Begin the serial monitor at 9600bps
-  bluetooth.begin(9600);       	  // The Bluetooth Mate defaults to 115200bps
+  bluetooth.begin(9600);          // The Bluetooth Mate defaults to 115200bps
   pinMode(power, OUTPUT);         // Set power pin to output
   digitalWrite(power, LOW);       // Initialize power to off initially
   pinMode(led, OUTPUT);           // Set LED pin to output
   digitalWrite(led, LOW);         // Initialize the safety LEDs off initially
   pinMode(con,INPUT);             // Set the connection pin to input 
-  pinMode(cmo, INPUT);			  // Carbon monoxide pin to input
-  pinMode(swit, INPUT);			  // Switch pin to input
-  pinMode(photor,INPUT);		  // Photoresistor pin to input
+  pinMode(cmo, INPUT);            // Carbon monoxide pin to input
+  pinMode(swit, INPUT);           // Switch pin to input
+  pinMode(photor,INPUT);          // Photoresistor pin to input
 }
 
 void sync_time(){
