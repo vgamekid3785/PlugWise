@@ -7,70 +7,69 @@
 //------------------------
 #define bluetoothTx 11  // TX-O pin of bluetooth mate, Arduino D2
 #define bluetoothRx 10  // RX-I pin of bluetooth mate, Arduino D3
-#define power 9        // Pin used to turn power on an off
-#define led 13         // Pin used to control safety LEDs
-#define cmo 12         // Pin used to read from the carbon monoxide detector
-#define con 6          // check if the BT module is paired
-#define photor 5   	   //Pin of photoresistor
-#define swit 7    	   //Pin of switch
+#define power 9        	// Pin used to turn power on an off
+#define led 13         	// Pin used to control safety LEDs
+#define cmo 12         	// Pin used to read from the carbon monoxide detector
+#define con 6         	// check pin if the BT module is paired
+#define photor A6   	// Pin of photoresistor
+#define swit 5    	   	// Pin of switch
 
 //-----------------------
 //Variable Declarations
 //-----------------------
 char val;                    	// Value received from bluetooth serial
-float cmol = 0;         		// Value for carbon monoxide detection ** Value needs to be written ** 
+boolean cmol = false;        	// Bool to make sure duplicate notifications are not pushed to device
+float co_val = 500;				// Danger value for the carbon monoxide detector
 unsigned int setting = 0;       // Value deciding whether or not to turn off power when no slave is detected
 boolean powr = false;			// Whether or not power is flowing to the device
 boolean conekt = false; 		// Is the android connected from bluetooth
-boolean calibrated = false;
-boolean safety_auto = false;	// Are the safety lights set to automatically turn on
+boolean safety_auto = true;		// Are the safety lights set to automatically turn on
 boolean ignore = false;			// Bool to ignore the conekt setting if push button is pushed
-float min_value = 100.0;      	// Needs to be determined though testing
+float min_value = 100.0;      	// Dark value for photoresistor to turn on safety lights
 long last1;						// Values for checking if connected
 long last0;
-boolean debounce = 0;
-//time_t sync_time;             // Value pulled from device to sync internal clock
-Schedule blank;
+boolean debounce = false;		// Bool to make sure the device only changes once per push button click
+Schedule blank;					// Blank schedule to keep in storage
 Schedule actions[4] = {blank,blank,blank,blank}; //Arranged power off, on, safety off, on
 
 //-----------------------
 //--Function Prototypes--
 //-----------------------
-void change_power(const int& setting);
-void ambient_light_check(const unsigned int& min_value);
-void carbon_monoxide_check(const boolean& connected);
-void parse_schedule(Schedule new_schedule);
-time_t bluetooth_read_time();
-void main_power_on();
-void main_power_off();
-void safety_lights_on();
-void safety_lights_off();
-void sync_time(); 
+void change_power(const int& setting);						//Change power based on setting paseed in
+void ambient_light_check(const unsigned int& min_value);	//Check the ambient light and turn the safety lights on if it is below the dark value
+void carbon_monoxide_check(const boolean& connected);		//Check for carbon monoxide in the air
+void parse_schedule(Schedule new_schedule);					//Scheduler parser from the bluetooth buffer
+time_t bluetooth_read_time();								//Reads a time from the bluetooth and returns a type time_t
+void main_power_on();										//Scheduling functions
+void main_power_off();										//
+void safety_lights_on();									//
+void safety_lights_off();									//
+void sync_time(); 											//Syncs the internal clock to the time given from the arduino
 
-//Set these pins as a software serial connection
+//Set the bluetooth to a software serial connection
 SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
 
 //Initializations
 void setup()
 {
   Serial.begin(9600);             // Begin the serial monitor at 9600bps
-  bluetooth.begin(9600);        // The Bluetooth Mate defaults to 115200bps
+  bluetooth.begin(9600);       	  // The Bluetooth Mate defaults to 115200bps
   pinMode(power, OUTPUT);         // Set power pin to output
-  digitalWrite(power, LOW);       // Initalize power to off initially
+  digitalWrite(power, LOW);       // Initialize power to off initially
   pinMode(led, OUTPUT);           // Set LED pin to output
-  digitalWrite(led, LOW);         // Initalize the safety LEDs off initially
+  digitalWrite(led, LOW);         // Initialize the safety LEDs off initially
   pinMode(con,INPUT);             // Set the connection pin to input 
-  pinMode(cmo, INPUT);
-  pinMode(swit, INPUT);
-  //**Read schedule data from EEPROM**
-  //Maybe set first byte of eeprom as a bool to see if it has been initialized or not (whether or not to read from it in set up or write it blank)
+  pinMode(cmo, INPUT);			  // Carbon monoxide pin to input
+  pinMode(swit, INPUT);			  // Switch pin to input
+  pinMode(photor,INPUT);		  // Photoresistor pin to input
 }
 
 void sync_time(){
+	Serial.println("Requesting Time");
 	//Sync time from device and schedule 
 	//time format second,hour,minute,day,month,year
 	//Send request for time from device
-	bluetooth.write("s"); // can be changed arbitrarily 
+	bluetooth.write("s");
 	//Wait for response from device
 	while(!bluetooth.available());
 	setTime(bluetooth_read_time());
@@ -79,23 +78,20 @@ void sync_time(){
 
 void loop()
 { 
+  //Connection checking since coneckt pin cycles when disconnect and solid when connected
   if(digitalRead(con) == HIGH) {
-    last1 = millis();
+	last1 = millis();
   }
   else {
     last0 = millis();
   }
- 
+  //If the device is connected, if the internal time is not set, request it, and also set connect == true
   if(last1 - last0 > 500) {
 	if (timeStatus()== timeNotSet) sync_time(); 
-          // delay(5000);
-          // Serial.println("Current time"); 
-          // print_time(now()); 
-        // }    
-        conekt = true;
+	conekt = true;
   }
   else {
-   conekt = false; 
+	conekt = false; 
   }
 
   if(digitalRead(swit)==HIGH){
@@ -103,22 +99,21 @@ void loop()
   }
   //Manual override for a physical switch to change the state of the device
   if(digitalRead(swit)==LOW && !debounce){
-	  if (!conekt) ignore = true;
-	  debounce = true;
-      if(powr == false){
-		  //Serial.println("Changing power\n%%%%%%%55\n%%%%%%%%%%%%%%\n%%%%%%%%%%%%%");
-          powr = true;
-          digitalWrite(power, HIGH);
-      }
-      else{
-        powr = false;
-        digitalWrite(power,LOW);
-      }
+	if (!conekt) ignore = true;
+	debounce = true;
+	if(powr == false){
+		Serial.println("Power On (Switch)");
+		powr = true;
+		digitalWrite(power, HIGH);
+	}
+	else{
+		powr = false;
+		Serial.println("Power off (switch)");
+		digitalWrite(power,LOW);
+    }
   }
-  
-  // if (Serial.available()) bluetooth.write(Serial.read()); //For debug/
-
-  if(bluetooth.available())  // If the bluetooth sent any characters
+  //If the bluetooth sent any characters
+  if(bluetooth.available())
   {
     //-------------------------------------------
     //---------------Receiving Data--------------
@@ -159,26 +154,26 @@ void loop()
     //------------Safety Light Calibration---------- Command to calibrate the value for the photo resistor
     else if (val == 'C') 
     {
-      //Make sure that the LED's are on for the test
-      if (!digitalRead(led)) digitalWrite(led,HIGH);
-
-      //Averaging 3 values to be sure ** We can change the delay or eliminate completely if need be **
-      //Needs testing, may need to add some onto this number to prevent it from oscilating
-      min_value += analogRead(photor);
-      delay(50);
-      min_value += analogRead(photor);
-      delay(50);
-      min_value += analogRead(photor);
-      min_value /= 3;
-      Serial.println("Calibration Successful");
-	  calibrated = true;
-      digitalWrite(led,LOW);
+		Serial.println("Calibrating LED's");
+		//Make sure that the LED's are on for the test
+		if (!digitalRead(led)) digitalWrite(led,HIGH);
+		min_value = 0;
+		//Averaging 3 values to be sure
+		min_value += analogRead(photor);
+		delay(1000);
+		min_value += analogRead(photor);
+		delay(1000);
+		min_value += analogRead(photor);
+		min_value /= 3;
+		//
+		min_value -= 20;
+		digitalWrite(led,LOW);
     }
 
     //--------------Setting Changes-----------------
 
     //--------------Safety Light Settings-----------  ****need to hardcode calibration into it.
-    else if (val == '4' && calibrated){
+    else if (val == '4'){
       safety_auto = true;
       Serial.println("Safety LED lights auto mode");
     }
@@ -210,6 +205,7 @@ void loop()
       Serial.println("Changed setting to 2"); 
     }
 	//-------------Scheduling-----------------------
+	//Reading in a schedule from device
 	else if (val = '(')
 	{	
 		Schedule new_schedule = parse_schedule();
@@ -221,30 +217,31 @@ void loop()
                 //Store in EEPROM
 	}
 	//Remove a schedule, just sets ticks = 0;
+	//Sent line is 'R#' with # replaced with a # 0 through 4 for which schedule to clear
 	else if (val = 'R'){
-		//you have to pass in another val after it to specify which schedule to remove
 		val = bluetooth.read();
+		//Reading which schedule to clear
 		actions[((int)val-48)].ticks = 0;
-		//Change it in EEPROM 
 	}
     // delay before next command occurs 
     delay(50);
   }
-
-  // Turn outlet on or off when bluetooth disconnects depending on setting set by user. 
-  else if (!conekt) change_power(setting); 
+  // Turn outlet on or off when Bluetooth disconnects depending on setting set by user. 
+  if (!conekt) change_power(setting); 
   //Turn on or off the safety lights depending on if safety auto is on and it is darker than the minimum
-  else if (safety_auto) ambient_light_check(min_value);
+  if (safety_auto) ambient_light_check(min_value);
   //CO check
   carbon_monoxide_check(conekt);
   //Scheduling checks 
   for (int i=0; i < 4; ++i){
 	if (actions[i].ticks > 0) actions[i].check_time();
   }
+  delay(500);
 }
 //Functions for Scheduling 
-//Main power options change out of range setting to constant when called by Scheduler
-//Set to 3 for debugging 
+//=======================
+//Main power options change out of range setting to constant to make sure the power stays on or off when it changes
+//Safety lights auto is set to false so the safety lights stay on or off regardless of lighting conditions
 void main_on(){
     if(!powr){
       digitalWrite(power, HIGH);
@@ -275,7 +272,9 @@ void safety_off(){
     Serial.println("Turned off safety lights! (Schedule)");
   }
 }
-//Prints out the time to the Serial
+//========================
+
+//Prints out the time to the Serial for debugging
 void print_time(time_t stime){
 	Serial.println("Time_t has:");
 	Serial.println(second(stime));
@@ -296,13 +295,7 @@ time_t bluetooth_read_time(){
 	temp.Hour = bluetooth.parseInt();
 	temp.Day = bluetooth.parseInt();
 	temp.Month = bluetooth.parseInt();
-	temp.Year = bluetooth.parseInt();
-	// Serial.println(temp.Second);	
-	// Serial.println(temp.Minute);	
-	// Serial.println(temp.Hour);	
-	// Serial.println(temp.Day);	
-	// Serial.println(temp.Month);	
-	// Serial.println(temp.Year);		
+	temp.Year = bluetooth.parseInt();	
     time_t timet;
     timet = makeTime(temp);
 	return timet;
@@ -311,26 +304,22 @@ time_t bluetooth_read_time(){
 //-----------------------------------------------------------
 //---------------------Scheduling----------------------------
 //-----------------------------------------------------------
-//For next, 0 = main on, 1 = main_off, 2 = safety_on, 3 = safety_off
+//Type is the function that the schedule will be performing
+//Start and end are the start and end times
+//Interval is how often the function should call
+//Return is a type schedule that is the parsed schedule
 Schedule parse_schedule(){
 	int type = bluetooth.parseInt();
-	//Serial.println("Start time:");
 	time_t start = bluetooth_read_time();
 	int interval = bluetooth.parseInt();
-	//Serial.println("End time:");
 	time_t end = bluetooth_read_time();
 	bluetooth.flush();
 	//This is the length of time that the schedule will be on for
 	double length = (end - start)/60; //Return is in seconds
-	//If timer, make ticks 1
+	//If timer, make ticks 1, else ticks is number of times function is called
     unsigned int ticks = 1;
 	//Otherwise how many times the device will have to do the function. length of time of schedule / how often to do the action
 	if (length) ticks = (int)ceil(length/interval);
-	// Serial.println("Parsed Schedule)");
-	// Serial.println(type);
-	// print_time(start);
-	// Serial.println(interval);
-	// Serial.println(ticks);
 	//Set the schedule to the parsed data from Serial, last pass is function
 	Schedule return_schedule; 
 	//Changes function based on next value passed and returns the schedule
@@ -343,21 +332,20 @@ Schedule parse_schedule(){
 
 //Function to change the state of the main power based on the passed setting 
 void change_power(const int& set){
-  //Serial.println(powr);
+  //If the current setting is 0 (turn off out of range) or 1 (turn on out of range) 
   if (set < 2 && !ignore){
+	//Turn off if out of range and power is on
     if (set == 0  && powr){
-	  //Serial.println("Turning off power!\n------------\n------------\n\n$$$$$$$$$$$\n");
       digitalWrite(power, LOW);
       Serial.println("Turned off power! (Disconnect)");
       powr = false;
     }
+	//Turn on if out of range and power is off
     else if (set == 1 && !powr){
       digitalWrite(power, HIGH);
       Serial.println("Turned on power! (Disconnect)");
       powr = true;
     }
-    //Set 0 will write low and Set 1 will write high
-    // powr = set;
   }
 }
 
@@ -376,10 +364,6 @@ void ambient_light_check(const unsigned int& min_value){
     Serial.println("Turned off LED's, brightness");
     digitalWrite(led,LOW);
   }
-  
-  // print out the value you read:
-  //Serial.println(voltage);
-  //Serial.println(sensorValue);
 }
 
 //-----------------------------------------------------------
@@ -390,9 +374,11 @@ void ambient_light_check(const unsigned int& min_value){
 //if carbon monoxide is detected, store that it is
 
 void carbon_monoxide_check(const boolean& connected){
-  if(analogRead(cmo) > 512){ //512 is arbitrary 
+  // If the carbon monoxide detector is reporting a larger value than the danger value, send a notification to the bluetooth device
+  if(analogRead(cmo) > co_val){ 
+	//IF statement to make sure notification is not pushed multiple times
+	if (connected && !cmol) bluetooth.println('1');
 	cmol = true;
-	if (connected) bluetooth.println('1');
   } 
   //otherwise store that it is not detected
   else cmol = false;
